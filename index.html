@@ -193,7 +193,7 @@ body{font-family:-apple-system,'Segoe UI',Arial,sans-serif;background:#f5f4f0;mi
       <label class="save-btn" style="background:#534AB7;cursor:pointer;display:block;text-align:center;">📥 Data importeren (terugzetten)<input type="file" accept=".json" onchange="importData(event)" style="display:none;"></label>
       <button class="save-btn" onclick="showDataInfo()" style="background:#fff;color:#185FA5;border:1.5px solid #185FA5;">ℹ️ Wat wordt opgeslagen?</button>
     </div>
-    <p class="hint" style="margin-top:12px;">Versie 2.3 · Gewoontes app</p>
+    <p class="hint" style="margin-top:12px;">Versie 2.6 · Gewoontes app</p>
   </div>
 
 </div>
@@ -397,18 +397,26 @@ function renderOverview(){
   const todayStr=TODAY;
   document.getElementById('period-label').textContent=getPeriodLabel(currentPeriod,periodOffset);
   let totalDone=0,totalPossible=0,streak=0;
+  // totalPossible = ALL days in period × number of habits (regardless of activity)
   days.forEach(d=>{
-    const ds=dstr(d);if(ds>todayStr)return;
+    const ds=dstr(d);
     const data=getData(ds);
-    habits.forEach(h=>{totalPossible++;if(data[h.id]&&data[h.id].done)totalDone++;});
+    habits.forEach(h=>{
+      totalPossible++; // count every day in period
+      if(ds<=todayStr && data[h.id]&&data[h.id].done) totalDone++;
+    });
   });
+  // Streak: consecutive days with ALL habits done
   for(let i=0;i<365;i++){
     const d=new Date();d.setDate(new Date().getDate()-i);
-    const ds=dstr(d);const data=getData(ds);
+    const ds=dstr(d);
+    const data=getData(ds);
     const cnt=habits.filter(h=>data[h.id]&&data[h.id].done).length;
-    if(cnt>0)streak++;else break;
+    if(cnt===habits.length) streak++;
+    else break;
   }
-  const pct=totalPossible>0?Math.round(totalDone/totalPossible*100):0;
+  // Percentage: done / total possible in full period
+  const pct=totalPossible>0?Math.round((totalDone/totalPossible)*100):0;
   document.getElementById('stat-grid').innerHTML=`
     <div class="stat-box"><div class="stat-val">${totalDone}</div><div class="stat-label">Gedaan</div></div>
     <div class="stat-box"><div class="stat-val">${pct}%</div><div class="stat-label">Percentage</div></div>
@@ -427,13 +435,14 @@ function renderOverview(){
         let done=0,total=0;
         for(let i=1;i<=dim;i++){
           const ds=dstr(new Date(yr,mo,i));
-          if(ds>todayStr)continue;
-          total++;
+          total++; // count all days in month
+          if(ds>todayStr) continue; // future: count in total but not done
           const data=getData(ds);
-          if(data[h.id]&&data[h.id].done)done++;
+          if(data[h.id]&&data[h.id].done) done++;
         }
-        const p=total>0?Math.round(done/total*100):null;
-        const col=p===null?'#ddd':p>=80?h.color:p>=40?'#aaa':'#e0dfd8';
+        // Only count days up to today
+        const p=total>0?Math.round((done/total)*100):null;
+        const col=p===null?'#ddd':p>=80?h.color:p>=50?'#aaa':'#e0dfd8';
         html+=`<td style="text-align:center;font-size:11px;color:${col};font-weight:500;">${p!==null?p+'%':'·'}</td>`;
       });
       html+='</tr>';
