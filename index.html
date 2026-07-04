@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gewoontes">
+<meta name="theme-color" content="#185FA5">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<title>Mijn gewoontes</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:-apple-system,'Segoe UI',Arial,sans-serif;background:#f5f4f0;min-height:100vh;padding-bottom:75px;}
+.topbar{background:#185FA5;color:#fff;padding:52px 20px 16px;}
+.topbar .date{font-size:12px;opacity:0.75;margin-bottom:2px;}
+.topbar h1{font-size:22px;font-weight:600;}
+.content{padding:16px;max-width:480px;margin:0 auto;}
+.card{background:#fff;border-radius:14px;padding:14px 16px;margin-bottom:12px;border:0.5px solid #e0dfd8;}
+.section{display:none;}.section.active{display:block;}
+
+/* PROGRESS */
+.progress-label{display:flex;justify-content:space-between;font-size:13px;color:#666;margin-bottom:8px;}
+.progress-track{height:8px;background:#e0dfd8;border-radius:99px;overflow:hidden;}
+.progress-fill{height:8px;background:#1D9E75;border-radius:99px;transition:width 0.4s;}
+.done-msg{text-align:center;font-size:13px;color:#27500A;margin-top:8px;}
+
+/* FAJR */
+.fajr-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.fajr-row label{font-size:13px;color:#555;white-space:nowrap;}
+.fajr-row input[type=time]{border:0.5px solid #ccc;border-radius:8px;padding:6px 10px;font-size:14px;background:#faf9f6;color:#1a1a18;font-family:inherit;flex:1;min-width:100px;}
+.fajr-note{font-size:11px;color:#999;margin-top:6px;}
+
+/* HABITS */
+.habit-wrap{margin-bottom:10px;}
+.habit{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:13px;cursor:pointer;border:1.5px solid transparent;user-select:none;transition:opacity 0.2s;}
+.habit.has-reason{border-radius:13px 13px 0 0;border-bottom:none;}
+.habit.done{opacity:0.6;}
+.checkbox{width:22px;height:22px;border-radius:5px;border:2px solid #bbb;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.checkmark{color:#fff;font-size:14px;font-weight:700;display:none;}
+.habit.done .checkmark{display:block;}
+.habit-info{flex:1;}
+.habit-name{font-size:15px;font-weight:500;}
+.habit.done .habit-name{text-decoration:line-through;}
+.habit-time{font-size:12px;color:#999;margin-top:1px;}
+.badge{font-size:11px;padding:3px 9px;border-radius:99px;white-space:nowrap;}
+.badge-done{background:#EAF3DE;color:#27500A;}
+.badge-late{background:#FCEBEB;color:#A32D2D;}
+.badge-now{background:#FAEEDA;color:#633806;}
+.reason-box{border:1.5px solid #e0dfd8;border-top:0.5px solid #eee;border-radius:0 0 13px 13px;background:#faf9f6;padding:6px 10px;display:flex;align-items:center;gap:8px;}
+.reason-box textarea{flex:1;border:none;background:transparent;font-size:12px;font-family:inherit;color:#555;resize:none;outline:none;height:28px;line-height:1.4;}
+.reason-label{font-size:10px;color:#bbb;white-space:nowrap;}
+
+/* NOTIF */
+.notif-btn{display:block;width:100%;padding:13px;border-radius:13px;border:1.5px solid #185FA5;background:#fff;color:#185FA5;font-size:14px;font-weight:500;cursor:pointer;font-family:inherit;text-align:center;margin-top:4px;}
+.notif-on{background:#EAF3DE;border-color:#1D9E75;color:#27500A;}
+.notif-off{background:#FCEBEB;border-color:#A32D2D;color:#A32D2D;font-size:12px;}
+.hint{text-align:center;font-size:11px;color:#aaa;margin-top:10px;margin-bottom:4px;}
+
+/* INSTALL */
+.install-banner{background:#E6F1FB;border-radius:13px;padding:12px 14px;margin-bottom:12px;border:1px solid #B5D4F4;}
+.install-banner p{font-size:12px;color:#0C447C;line-height:1.7;}
+
+/* BOTTOM NAV */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:0.5px solid #e0dfd8;display:flex;z-index:100;padding-bottom:env(safe-area-inset-bottom);}
+.nav-btn{flex:1;padding:10px 0 8px;border:none;background:transparent;cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:3px;color:#aaa;font-size:10px;}
+.nav-btn.active{color:#185FA5;}
+.nav-icon{font-size:20px;}
+
+/* OVERVIEW */
+.period-tabs{display:flex;gap:6px;margin-bottom:12px;}
+.period-tab{flex:1;padding:7px;border-radius:8px;border:0.5px solid #ddd;background:#fff;font-size:12px;font-family:inherit;cursor:pointer;color:#888;text-align:center;}
+.period-tab.active{background:#185FA5;color:#fff;border-color:#185FA5;}
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
+.stat-box{background:#fff;border-radius:12px;padding:10px 8px;border:0.5px solid #e0dfd8;text-align:center;}
+.stat-val{font-size:20px;font-weight:600;color:#185FA5;}
+.stat-label{font-size:10px;color:#888;margin-top:2px;}
+.nav-arrow{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.nav-arrow button{border:none;background:transparent;font-size:22px;cursor:pointer;color:#185FA5;padding:4px 10px;}
+.nav-arrow .period-label{font-size:13px;font-weight:500;color:#1a1a18;}
+.overview-table{width:100%;border-collapse:collapse;font-size:12px;}
+.overview-table th{font-size:10px;color:#888;font-weight:500;padding:4px 4px;text-align:left;border-bottom:0.5px solid #eee;}
+.overview-table td{padding:6px 4px;border-bottom:0.5px solid #f5f4f0;vertical-align:top;}
+.habit-dots{display:flex;flex-wrap:wrap;gap:3px;}
+.hdot{width:16px;height:16px;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;font-size:8px;}
+.hdot.done{color:#fff;}
+.hdot.skip{background:#f0efe8;color:#ccc;}
+.hdot.future{background:#f8f8f6;color:#ddd;}
+
+/* SETTINGS */
+.settings-section-title{font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin:16px 0 6px;}
+.habit-edit-row{display:flex;align-items:center;gap:8px;padding:10px 14px;background:#fff;border-radius:12px;margin-bottom:8px;border:0.5px solid #e0dfd8;}
+.habit-edit-row .drag-handle{font-size:16px;color:#ccc;cursor:grab;}
+.habit-edit-row .emoji-btn{font-size:18px;cursor:pointer;padding:2px;border:none;background:transparent;}
+.habit-edit-row .name-input{flex:1;border:none;font-size:14px;font-family:inherit;color:#1a1a18;background:transparent;outline:none;min-width:60px;}
+.habit-edit-row .time-input{border:0.5px solid #ddd;border-radius:6px;padding:4px 6px;font-size:13px;font-family:inherit;color:#555;background:#faf9f6;width:72px;}
+.habit-edit-row .color-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0;cursor:pointer;}
+.habit-edit-row .del-btn{font-size:16px;color:#ddd;cursor:pointer;border:none;background:transparent;padding:2px 4px;}
+.habit-edit-row .del-btn:active{color:#e05;}
+.add-habit-btn{display:flex;align-items:center;gap:8px;padding:10px 14px;background:#fff;border-radius:12px;border:1.5px dashed #ccc;cursor:pointer;width:100%;font-size:14px;color:#888;font-family:inherit;}
+.save-btn{display:block;width:100%;padding:13px;border-radius:13px;border:none;background:#185FA5;color:#fff;font-size:15px;font-weight:500;cursor:pointer;font-family:inherit;margin-top:4px;}
+.save-btn:active{background:#0e3d7a;}
+.ios-notif-box{background:#FFF8E6;border:1px solid #F0C060;border-radius:12px;padding:12px 14px;margin-bottom:10px;}
+.ios-notif-box p{font-size:12px;color:#7A5000;line-height:1.7;}
+.ios-notif-box ol{font-size:12px;color:#7A5000;padding-left:18px;margin-top:6px;line-height:1.9;}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:200;align-items:flex-end;}
+.modal-overlay.open{display:flex;}
+.modal{background:#fff;border-radius:20px 20px 0 0;padding:20px 20px 40px;width:100%;max-height:70vh;overflow-y:auto;}
+.modal h3{font-size:16px;font-weight:600;margin-bottom:14px;}
+.emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:8px;margin-bottom:12px;}
+.emoji-grid button{font-size:22px;padding:6px;border:0.5px solid #eee;border-radius:8px;background:#fafaf8;cursor:pointer;}
+.emoji-grid button.selected{border-color:#185FA5;background:#E6F1FB;}
+.color-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;}
+.color-swatch{width:36px;height:36px;border-radius:50%;cursor:pointer;border:3px solid transparent;}
+.color-swatch.selected{border-color:#185FA5;}
+.close-modal{display:block;width:100%;padding:11px;border:0.5px solid #ddd;border-radius:10px;background:transparent;font-size:14px;cursor:pointer;font-family:inherit;margin-top:12px;}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="date" id="date-label"></div>
+  <h1 id="page-title">Mijn gewoontes</h1>
+</div>
+<div class="content">
+
+  <!-- VANDAAG -->
+  <div class="section active" id="section-today">
+    <div class="install-banner" id="install-banner" style="display:none;">
+      <p>📲 <strong>Installeren op iPhone:</strong> Tik op <strong>□↑</strong> in Safari → kies <strong>"Zet op beginscherm"</strong> → dan werken meldingen ook!</p>
+    </div>
+    <div class="card">
+      <div class="progress-label"><span>Voortgang vandaag</span><span id="prog-label">0 / 6</span></div>
+      <div class="progress-track"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+      <div class="done-msg" id="done-msg" style="display:none;">🎉 Alle taken gedaan vandaag!</div>
+    </div>
+    <div id="habits-list"></div>
+    <button class="notif-btn" id="notif-btn">🔔 Meldingen inschakelen</button>
+    <p class="hint">Tik om af te vinken · Schrijf een reden als je iets niet doet</p>
+  </div>
+
+  <!-- OVERZICHT -->
+  <div class="section" id="section-overview">
+    <div class="period-tabs">
+      <button class="period-tab active" onclick="setPeriod('week',this)">Week</button>
+      <button class="period-tab" onclick="setPeriod('month',this)">Maand</button>
+      <button class="period-tab" onclick="setPeriod('year',this)">Jaar</button>
+    </div>
+    <div class="nav-arrow">
+      <button onclick="shiftPeriod(-1)">‹</button>
+      <span class="period-label" id="period-label"></span>
+      <button onclick="shiftPeriod(1)">›</button>
+    </div>
+    <div class="stat-grid" id="stat-grid"></div>
+    <div class="card" id="overview-content"></div>
+    <p class="hint">✓ = gedaan · – = niet gedaan · Reden in de laatste kolom</p>
+  </div>
+
+  <!-- INSTELLINGEN -->
+  <div class="section" id="section-settings">
+
+    <div class="settings-section-title">🌙 Fajr-tijd</div>
+    <div class="card">
+      <div class="fajr-row">
+        <label>Fajr-tijd</label>
+        <input type="time" id="fajr-input" value="05:15" onchange="setFajr(this.value)">
+      </div>
+      <div class="fajr-note" id="fajr-note-settings"></div>
+    </div>
+
+    <div class="settings-section-title">✏️ Taken bewerken</div>
+    <div id="habit-edit-list"></div>
+    <button class="add-habit-btn" onclick="addHabit()">＋ Nieuwe taak toevoegen</button>
+    <button class="save-btn" onclick="saveHabits()" style="margin-top:12px;">💾 Opslaan</button>
+
+    <div class="settings-section-title">🔔 Meldingen (iPhone)</div>
+    <div class="ios-notif-box">
+      <p><strong>Meldingen werken alleen als:</strong></p>
+      <ol>
+        <li>Je iPhone heeft iOS 16.4 of nieuwer</li>
+        <li>De app is geïnstalleerd via "Zet op beginscherm" in Safari</li>
+        <li>Je de app opent via het icoontje (niet via Safari)</li>
+        <li>Je toestemming geeft via de knop hieronder</li>
+      </ol>
+    </div>
+    <button class="notif-btn" id="notif-btn-settings">🔔 Meldingen inschakelen</button>
+
+    <div class="settings-section-title">💾 Data back-up</div>
+    <div class="card" style="display:flex;flex-direction:column;gap:10px;">
+      <button class="save-btn" onclick="exportData()" style="background:#1D9E75;">📤 Data exporteren (download)</button>
+      <label class="save-btn" style="background:#534AB7;cursor:pointer;display:block;text-align:center;">📥 Data importeren (terugzetten)<input type="file" accept=".json" onchange="importData(event)" style="display:none;"></label>
+      <button class="save-btn" onclick="showDataInfo()" style="background:#fff;color:#185FA5;border:1.5px solid #185FA5;">ℹ️ Wat wordt opgeslagen?</button>
+    </div>
+    <p class="hint" style="margin-top:12px;">Versie 2.3 · Gewoontes app</p>
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" id="nav-today" onclick="showTab('today')"><span class="nav-icon">✅</span><span>Vandaag</span></button>
+  <button class="nav-btn" id="nav-overview" onclick="showTab('overview')"><span class="nav-icon">📊</span><span>Overzicht</span></button>
+  <button class="nav-btn" id="nav-settings" onclick="showTab('settings')"><span class="nav-icon">⚙️</span><span>Instellingen</span></button>
+</nav>
+
+<!-- EMOJI MODAL -->
+<div class="modal-overlay" id="emoji-modal">
+  <div class="modal">
+    <h3>Kies een emoji</h3>
+    <div class="emoji-grid" id="emoji-grid"></div>
+    <button class="close-modal" onclick="closeModal('emoji-modal')">Sluiten</button>
+  </div>
+</div>
+
+<!-- COLOR MODAL -->
+<div class="modal-overlay" id="color-modal">
+  <div class="modal">
+    <h3>Kies een kleur</h3>
+    <div class="color-grid" id="color-grid"></div>
+    <button class="close-modal" onclick="closeModal('color-modal')">Sluiten</button>
+  </div>
+</div>
+
+<script>
+const DEFAULT_HABITS=[
+  {id:"quran",emoji:"📖",name:"Koran lezen",time:"05:15",color:"#0F6E56",notify:"Tijd voor Koran lezen na Fajr!"},
+  {id:"sport",emoji:"🏋",name:"Sporten",time:"05:45",color:"#993C1D",notify:"Tijd om te sporten!"},
+  {id:"az900",emoji:"☁",name:"AZ-900",time:"09:00",color:"#185FA5",notify:"AZ-900 studeren — 09:00!"},
+  {id:"thm",  emoji:"🖥",name:"TryHackMe",time:"10:30",color:"#534AB7",notify:"TryHackMe — 10:30!"},
+  {id:"nl",   emoji:"🇳🇱",name:"Nederlands",time:"14:00",color:"#854F0B",notify:"Nederlands leren — namiddag!"},
+  {id:"book", emoji:"📚",name:"Boek lezen",time:"21:00",color:"#993556",notify:"Tijd om te lezen voor het slapen!"},
+];
+const EMOJIS=["📖","🏋","☁","🖥","🇳🇱","📚","🏃","🧘","💪","🎯","✍️","🎓","💻","🔬","🌙","🙏","🎵","🍎","💊","🚶","📝","🧠","❤️","⭐"];
+const COLORS=["#0F6E56","#993C1D","#185FA5","#534AB7","#854F0B","#993556","#1D6E8F","#5A6E0F","#8F1D6E","#6E3A1D","#1D5A8F","#6E1D1D"];
+const BG_MAP={"#0F6E56":"#E1F5EE","#993C1D":"#FAECE7","#185FA5":"#E6F1FB","#534AB7":"#EEEDFE","#854F0B":"#FAEEDA","#993556":"#FBEAF0","#1D6E8F":"#E0F3FA","#5A6E0F":"#EEF5E0","#8F1D6E":"#F9E0F3","#6E3A1D":"#F5EBE0","#1D5A8F":"#E0ECF5","#6E1D1D":"#F5E0E0"};
+const DAY_NL=["Zondag","Maandag","Dinsdag","Woensdag","Donderdag","Vrijdag","Zaterdag"];
+const DAY_S=["Zo","Ma","Di","Wo","Do","Vr","Za"];
+const MON_NL=["januari","februari","maart","april","mei","juni","juli","augustus","september","oktober","november","december"];
+const MON_S=["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Aug","Sep","Okt","Nov","Dec"];
+
+let fajrTime=localStorage.getItem('fajr')||"05:15";
+let habits=[];
+let timers=[];
+let currentPeriod='week';
+let periodOffset=0;
+let editingIdx=-1;
+const TODAY=new Date().toISOString().split('T')[0];
+
+function loadHabits(){
+  try{
+    const s=localStorage.getItem('habits_config');
+    habits=s?JSON.parse(s):JSON.parse(JSON.stringify(DEFAULT_HABITS));
+  }catch(e){habits=JSON.parse(JSON.stringify(DEFAULT_HABITS));}
+}
+function storeHabits(){localStorage.setItem('habits_config',JSON.stringify(habits));}
+
+function pm(t){const[h,m]=t.split(':').map(Number);return h*60+m;}
+function ts(m){return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');}
+function nowM(){const n=new Date();return n.getHours()*60+n.getMinutes();}
+function dstr(d){return d.toISOString().split('T')[0];}
+function bg(c){return BG_MAP[c]||'#F0F0F0';}
+
+function getData(ds){try{return JSON.parse(localStorage.getItem('day_'+ds)||'{}');}catch(e){return{};}}
+function saveData(ds,data){localStorage.setItem('day_'+ds,JSON.stringify(data));}
+function getTodayData(){return getData(TODAY);}
+
+function setFajr(v){
+  fajrTime=v;
+  localStorage.setItem('fajr',v);
+  // update sport time automatically
+  const idx=habits.findIndex(h=>h.id==='sport');
+  if(idx>=0){
+    habits[idx].time=ts(pm(v)+30);
+    storeHabits();
+  }
+  clearTimers();scheduleAll();
+  document.getElementById('fajr-note-settings').textContent=`→ sport begint automatisch om ${ts(pm(v)+30)}`;
+  renderSettings();
+  renderToday();
+}
+
+function toggleHabit(id){
+  const data=getTodayData();
+  data[id]=data[id]||{};
+  data[id].done=!data[id].done;
+  if(data[id].done)delete data[id].reason;
+  saveData(TODAY,data);
+  renderToday();
+}
+
+function saveReason(id,val){
+  const data=getTodayData();
+  data[id]=data[id]||{};
+  data[id].reason=val;
+  saveData(TODAY,data);
+}
+
+function clearTimers(){timers.forEach(clearTimeout);timers=[];}
+
+function scheduleAll(){
+  clearTimers();
+  if(typeof Notification==='undefined'||Notification.permission!=='granted')return;
+  const now=new Date();
+  const data=getTodayData();
+  habits.forEach(h=>{
+    if(data[h.id]&&data[h.id].done)return;
+    const[hh,mm]=h.time.split(':').map(Number);
+    const t=new Date();t.setHours(hh,mm,0,0);
+    const diff=t-now;
+    if(diff>0)timers.push(setTimeout(()=>{
+      const d=getTodayData();
+      if(!(d[h.id]&&d[h.id].done))new Notification('⏰ Herinnering',{body:h.notify||h.name,icon:''});
+    },diff));
+  });
+}
+
+async function askNotif(){
+  if(!('Notification' in window)){
+    alert('Meldingen worden niet ondersteund. Installeer de app eerst via Safari → "Zet op beginscherm".');return;
+  }
+  if(Notification.permission==='denied'){
+    alert('Meldingen zijn geblokkeerd. Ga naar: iPhone Instellingen → Safari → Notificaties → sta toe voor deze website.');return;
+  }
+  const p=await Notification.requestPermission();
+  if(p==='granted'){
+    scheduleAll();
+    new Notification('✅ Gewoontes app',{body:'Meldingen zijn ingeschakeld!'});
+  }
+  updateNotifButtons();
+}
+
+function updateNotifButtons(){
+  const perm=typeof Notification!=='undefined'?Notification.permission:'unsupported';
+  ['notif-btn','notif-btn-settings'].forEach(id=>{
+    const btn=document.getElementById(id);if(!btn)return;
+    if(perm==='granted'){btn.textContent='🔔 Meldingen ingeschakeld';btn.className='notif-btn notif-on';btn.onclick=null;}
+    else if(perm==='denied'){btn.textContent='🔕 Geblokkeerd → ga naar iPhone Instellingen';btn.className='notif-btn notif-off';btn.onclick=null;}
+    else{btn.textContent='🔔 Meldingen inschakelen';btn.className='notif-btn';btn.onclick=askNotif;}
+  });
+}
+
+function showTab(tab){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('section-'+tab).classList.add('active');
+  document.getElementById('nav-'+tab).classList.add('active');
+  const titles={today:'Mijn gewoontes',overview:'Overzicht',settings:'Instellingen'};
+  document.getElementById('page-title').textContent=titles[tab];
+  if(tab==='today')renderToday();
+  if(tab==='overview'){periodOffset=0;renderOverview();}
+  if(tab==='settings')renderSettings();
+}
+
+// ---- OVERVIEW ----
+function setPeriod(p,btn){
+  currentPeriod=p;periodOffset=0;
+  document.querySelectorAll('.period-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderOverview();
+}
+function shiftPeriod(d){periodOffset+=d;renderOverview();}
+
+function getDays(period,offset){
+  const now=new Date();const days=[];
+  if(period==='week'){
+    const s=new Date(now);s.setDate(now.getDate()-now.getDay()+1+offset*7);
+    for(let i=0;i<7;i++){const d=new Date(s);d.setDate(s.getDate()+i);days.push(d);}
+  }else if(period==='month'){
+    const base=new Date(now.getFullYear(),now.getMonth()+offset,1);
+    const dim=new Date(base.getFullYear(),base.getMonth()+1,0).getDate();
+    for(let i=1;i<=dim;i++)days.push(new Date(base.getFullYear(),base.getMonth(),i));
+  }else{
+    const yr=now.getFullYear()+offset;
+    for(let m=0;m<12;m++)days.push(new Date(yr,m,1));
+  }
+  return days;
+}
+
+function getPeriodLabel(period,offset){
+  const now=new Date();
+  if(period==='week'){
+    const s=new Date(now);s.setDate(now.getDate()-now.getDay()+1+offset*7);
+    const e=new Date(s);e.setDate(s.getDate()+6);
+    return `${s.getDate()} ${MON_S[s.getMonth()]} – ${e.getDate()} ${MON_S[e.getMonth()]}`;
+  }
+  if(period==='month'){
+    const b=new Date(now.getFullYear(),now.getMonth()+offset,1);
+    return `${MON_NL[b.getMonth()]} ${b.getFullYear()}`;
+  }
+  return String(now.getFullYear()+offset);
+}
+
+function renderOverview(){
+  const days=getDays(currentPeriod,periodOffset);
+  const todayStr=TODAY;
+  document.getElementById('period-label').textContent=getPeriodLabel(currentPeriod,periodOffset);
+  let totalDone=0,totalPossible=0,streak=0;
+  days.forEach(d=>{
+    const ds=dstr(d);if(ds>todayStr)return;
+    const data=getData(ds);
+    habits.forEach(h=>{totalPossible++;if(data[h.id]&&data[h.id].done)totalDone++;});
+  });
+  for(let i=0;i<365;i++){
+    const d=new Date();d.setDate(new Date().getDate()-i);
+    const ds=dstr(d);const data=getData(ds);
+    const cnt=habits.filter(h=>data[h.id]&&data[h.id].done).length;
+    if(cnt>0)streak++;else break;
+  }
+  const pct=totalPossible>0?Math.round(totalDone/totalPossible*100):0;
+  document.getElementById('stat-grid').innerHTML=`
+    <div class="stat-box"><div class="stat-val">${totalDone}</div><div class="stat-label">Gedaan</div></div>
+    <div class="stat-box"><div class="stat-val">${pct}%</div><div class="stat-label">Percentage</div></div>
+    <div class="stat-box"><div class="stat-val">${streak}</div><div class="stat-label">Streak</div></div>`;
+
+  let html='';
+  if(currentPeriod==='year'){
+    html='<table class="overview-table"><thead><tr><th>Maand</th>';
+    habits.forEach(h=>html+=`<th style="text-align:center;">${h.emoji}</th>`);
+    html+='</tr></thead><tbody>';
+    days.forEach(d=>{
+      const yr=d.getFullYear(),mo=d.getMonth();
+      const dim=new Date(yr,mo+1,0).getDate();
+      html+=`<tr><td><strong>${MON_S[mo]}</strong></td>`;
+      habits.forEach(h=>{
+        let done=0,total=0;
+        for(let i=1;i<=dim;i++){
+          const ds=dstr(new Date(yr,mo,i));
+          if(ds>todayStr)continue;
+          total++;
+          const data=getData(ds);
+          if(data[h.id]&&data[h.id].done)done++;
+        }
+        const p=total>0?Math.round(done/total*100):null;
+        const col=p===null?'#ddd':p>=80?h.color:p>=40?'#aaa':'#e0dfd8';
+        html+=`<td style="text-align:center;font-size:11px;color:${col};font-weight:500;">${p!==null?p+'%':'·'}</td>`;
+      });
+      html+='</tr>';
+    });
+    html+='</tbody></table>';
+  }else{
+    html='<table class="overview-table"><thead><tr><th>Dag</th><th>Gewoontes</th><th>Redenen</th></tr></thead><tbody>';
+    days.forEach(d=>{
+      const ds=dstr(d);
+      const isFuture=ds>todayStr;
+      const isToday=ds===todayStr;
+      const data=getData(ds);
+      const label=currentPeriod==='week'
+        ?`<strong>${DAY_S[d.getDay()]}</strong><br><span style="font-size:10px;color:#aaa;">${d.getDate()}</span>`
+        :`<strong>${d.getDate()}</strong><br><span style="font-size:10px;color:#aaa;">${DAY_S[d.getDay()]}</span>`;
+      let dots='<div class="habit-dots">';
+      let reasons=[];
+      habits.forEach(h=>{
+        const entry=data[h.id]||{};
+        if(isFuture)dots+=`<span class="hdot future" title="${h.name}">·</span>`;
+        else if(entry.done)dots+=`<span class="hdot done" style="background:${h.color};" title="${h.name}">✓</span>`;
+        else{
+          dots+=`<span class="hdot skip" title="${h.name}">–</span>`;
+          if(entry.reason)reasons.push({name:h.name,emoji:h.emoji,reason:entry.reason,color:h.color});
+        }
+      });
+      dots+='</div>';
+      const reasonHtml=reasons.map(r=>`<div style="font-size:10px;margin-top:2px;"><span style="color:${r.color};">${r.emoji}</span> <em style="color:#666;">${r.reason}</em></div>`).join('');
+      html+=`<tr style="${isToday?'background:#f0f6ff;':''}"><td>${label}</td><td>${dots}</td><td>${reasonHtml}</td></tr>`;
+    });
+    html+='</tbody></table>';
+  }
+  document.getElementById('overview-content').innerHTML=html;
+}
+
+// ---- SETTINGS ----
+function renderSettings(){
+  document.getElementById('fajr-input').value=fajrTime;
+  document.getElementById('fajr-note-settings').textContent=`→ sport begint automatisch om ${ts(pm(fajrTime)+30)}`;
+  const list=document.getElementById('habit-edit-list');
+  list.innerHTML=habits.map((h,i)=>`
+    <div class="habit-edit-row" id="edit-row-${i}" data-index="${i}">
+      <button class="emoji-btn" onclick="openEmojiModal(${i})">${h.emoji}</button>
+      <input class="name-input" value="${h.name.replace(/"/g,'&quot;')}" oninput="habits[${i}].name=this.value" placeholder="Naam taak">
+      <input type="time" class="time-input" value="${h.time}" onchange="habits[${i}].time=this.value">
+      <span class="color-dot" style="background:${h.color};width:16px;height:16px;border-radius:50%;flex-shrink:0;cursor:pointer;" onclick="openColorModal(${i})"></span>
+      <button id="del-btn-${i}" onclick="confirmDelete(${i})" style="font-size:16px;color:#ccc;border:none;background:transparent;padding:2px 6px;cursor:pointer;flex-shrink:0;">🗑</button>
+    </div>
+    <div id="del-confirm-${i}" style="display:none;background:#FCEBEB;border-radius:0 0 10px 10px;padding:8px 14px;display:none;align-items:center;justify-content:space-between;border:1px solid #f5c0c0;border-top:none;margin-bottom:8px;margin-top:-8px;">
+      <span style="font-size:12px;color:#A32D2D;">Verwijder "${h.name}"?</span>
+      <div style="display:flex;gap:8px;">
+        <button onclick="cancelDelete(${i})" style="font-size:12px;padding:4px 10px;border-radius:6px;border:0.5px solid #ccc;background:#fff;cursor:pointer;">Annuleer</button>
+        <button onclick="deleteHabit(${i})" style="font-size:12px;padding:4px 10px;border-radius:6px;border:none;background:#A32D2D;color:#fff;cursor:pointer;font-weight:500;">Verwijder</button>
+      </div>
+    </div>`).join('');
+  updateNotifButtons();
+}
+
+function saveHabits(){
+  habits.forEach((h,i)=>{
+    const row=document.getElementById('edit-row-'+i);
+    if(!row)return;
+    const nameVal=row.querySelector('.name-input').value.trim();
+    const timeVal=row.querySelector('.time-input').value;
+    if(nameVal)h.name=nameVal;
+    if(timeVal)h.time=timeVal;
+    h.notify=h.emoji+' '+h.name+' — tijd!';
+  });
+  storeHabits();
+  clearTimers();scheduleAll();
+  renderToday();
+  alert('Opgeslagen!');
+}
+
+function addHabit(){
+  const id='habit_'+Date.now();
+  habits.push({id:id,emoji:'⭐',name:'Nieuwe taak',time:'08:00',color:'#185FA5',notify:'Nieuwe taak — tijd!'});
+  storeHabits();
+  renderSettings();
+  // scroll to new item
+  setTimeout(()=>{
+    const rows=document.querySelectorAll('[id^=edit-row-]');
+    if(rows.length>0)rows[rows.length-1].scrollIntoView({behavior:'smooth',block:'center'});
+  },100);
+}
+
+function confirmDelete(i){
+  i=parseInt(i);
+  // hide all other confirm boxes first
+  document.querySelectorAll('[id^="del-confirm-"]').forEach(el=>el.style.display='none');
+  const box=document.getElementById('del-confirm-'+i);
+  if(box) box.style.display='flex';
+}
+
+function cancelDelete(i){
+  const box=document.getElementById('del-confirm-'+i);
+  if(box) box.style.display='none';
+}
+
+function deleteHabit(i){
+  i=parseInt(i);
+  if(isNaN(i)||i<0||i>=habits.length)return;
+  habits.splice(i,1);
+  storeHabits();
+  renderSettings();
+  renderToday();
+}
+
+function openEmojiModal(i){
+  editingIdx=i;
+  const grid=document.getElementById('emoji-grid');
+  grid.innerHTML=EMOJIS.map(e=>`<button onclick="selectEmoji('${e}')" class="${habits[i].emoji===e?'selected':''}">${e}</button>`).join('');
+  document.getElementById('emoji-modal').classList.add('open');
+}
+
+function selectEmoji(e){
+  if(editingIdx>=0){habits[editingIdx].emoji=e;renderSettings();}
+  closeModal('emoji-modal');
+}
+
+function openColorModal(i){
+  editingIdx=i;
+  const grid=document.getElementById('color-grid');
+  grid.innerHTML=COLORS.map(c=>`<div class="color-swatch ${habits[i].color===c?'selected':''}" style="background:${c};" onclick="selectColor('${c}')"></div>`).join('');
+  document.getElementById('color-modal').classList.add('open');
+}
+
+function selectColor(c){
+  if(editingIdx>=0){habits[editingIdx].color=c;renderSettings();}
+  closeModal('color-modal');
+}
+
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+
+// ---- TODAY ----
+function renderToday(){
+  const now=new Date();
+  document.getElementById('date-label').textContent=`${DAY_NL[now.getDay()]} ${now.getDate()} ${MON_NL[now.getMonth()]} ${now.getFullYear()}`;
+  const data=getTodayData();
+  const done=habits.filter(h=>data[h.id]&&data[h.id].done).length;
+  const pct=Math.round(done/habits.length*100);
+  document.getElementById('prog-label').textContent=`${done} / ${habits.length}`;
+  document.getElementById('prog-fill').style.width=pct+'%';
+  document.getElementById('done-msg').style.display=done===habits.length?'block':'none';
+
+  document.getElementById('habits-list').innerHTML=habits.map(h=>{
+    const entry=data[h.id]||{};
+    const isDone=!!entry.done;
+    const nm=nowM();
+    const ht=pm(h.time);
+    let badge='';
+    if(isDone)badge=`<span class="badge badge-done">✓ gedaan</span>`;
+    else if(nm>ht+15)badge=`<span class="badge badge-late">⚠ te laat</span>`;
+    else if(nm>=ht-5&&nm<=ht+15)badge=`<span class="badge badge-now">🔔 nu!</span>`;
+    const bgColor=isDone?'#faf9f6':(BG_MAP[h.color]||'#f0f0f0');
+    const borderColor=isDone?'#e0dfd8':h.color;
+    return `<div class="habit-wrap">
+      <div class="habit${isDone?' done':''}${!isDone?' has-reason':''}"
+        style="background:${bgColor};border-color:${borderColor};"
+        onclick="toggleHabit('${h.id}')">
+        <div class="checkbox" style="border-color:${h.color};background:${isDone?h.color:'transparent'};">
+          <span class="checkmark">✓</span>
+        </div>
+        <div class="habit-info">
+          <div class="habit-name" style="color:${isDone?'#aaa':h.color};">${h.emoji} ${h.name}</div>
+          <div class="habit-time">${h.time}</div>
+        </div>
+        ${badge}
+      </div>
+      ${!isDone?`<div class="reason-box" style="border-color:${h.color}40;">
+        <span class="reason-label">Reden:</span>
+        <textarea placeholder="Waarom niet gedaan?" onchange="saveReason('${h.id}',this.value)" onblur="saveReason('${h.id}',this.value)">${entry.reason||''}</textarea>
+      </div>`:''}
+    </div>`;
+  }).join('');
+
+  updateNotifButtons();
+}
+
+function init(){
+  loadHabits();
+  fajrTime=localStorage.getItem('fajr')||"05:15";
+  const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone=window.navigator.standalone===true;
+  const banner=document.getElementById('install-banner');
+  if(isIOS&&!isStandalone)banner.style.display='block';
+  renderToday();
+  scheduleAll();
+}
+
+
+function exportData(){
+  const allData={};
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    allData[k]=localStorage.getItem(k);
+  }
+  const blob=new Blob([JSON.stringify(allData,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  const date=new Date().toISOString().split("T")[0];
+  a.href=url;
+  a.download="gewoontes_backup_"+date+".json";
+  a.click();
+  URL.revokeObjectURL(url);
+  alert("Backup opgeslagen! Bewaar dit bestand veilig.");
+}
+
+function importData(event){
+  const file=event.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const data=JSON.parse(e.target.result);
+      const count=Object.keys(data).length;
+      
+      Object.keys(data).forEach(k=>localStorage.setItem(k,data[k]));
+      loadHabits();
+      fajrTime=localStorage.getItem("fajr")||"05:15";
+      renderToday();
+      renderSettings();
+      alert("Data succesvol teruggezet!");
+    }catch(err){
+      alert("Ongeldig bestand. Gebruik een geldig backup-bestand.");
+    }
+  };
+  reader.readAsText(file);
+}
+
+function showDataInfo(){
+  const keys=[];
+  for(let i=0;i<localStorage.length;i++)keys.push(localStorage.key(i));
+  const dayKeys=keys.filter(k=>k.startsWith("day_")).length;
+  const msg="Opgeslagen data:\n\n"
+    +"Dagen bijgehouden: "+dayKeys+"\n"
+    +"Taken configuratie: "+(localStorage.getItem("habits_config")?"aanwezig":"niet aanwezig")+"\n"
+    +"Fajr-tijd: "+(localStorage.getItem("fajr")||"niet ingesteld")+"\n\n"
+    +"Locatie: Lokaal op jouw iPhone\n"
+    +"Privacy: Gaat nooit naar een server.";
+  alert(msg);
+}
+
+setInterval(renderToday,60000);
+init();
+</script>
+</body>
+</html>
