@@ -207,7 +207,7 @@ body{font-family:-apple-system,'Segoe UI',Arial,sans-serif;background:#f5f4f0;mi
       <label class="save-btn" style="background:#534AB7;cursor:pointer;display:block;text-align:center;">📥 Data importeren (terugzetten)<input type="file" accept=".json" onchange="importData(event)" style="display:none;"></label>
       <button class="save-btn" onclick="showDataInfo()" style="background:#fff;color:#185FA5;border:1.5px solid #185FA5;">ℹ️ Wat wordt opgeslagen?</button>
     </div>
-    <p class="hint" style="margin-top:12px;">Versie 2.8 · Gewoontes app</p>
+    <p class="hint" style="margin-top:12px;">Versie 2.9 · Gewoontes app</p>
   </div>
 
 </div>
@@ -301,8 +301,8 @@ function toggleHabit(id){
   data[id].done=!data[id].done;
   if(data[id].done) delete data[id].reason;
   saveData(TODAY,data);
-  // Reschedule to remove notification for completed habit
-  scheduleAll();
+  // Tell SW to reschedule (removes reminder for this habit)
+  notifySW();
   renderToday();
 }
 
@@ -311,47 +311,49 @@ function saveReason(id,val){
   data[id]=data[id]||{};
   data[id].reason=val;
   saveData(TODAY,data);
+  // Stop reminders for this habit since reason is given
+  if(val && val.trim()) notifySW();
 }
 
 function clearTimers(){timers.forEach(clearTimeout);timers=[];}
 
+function notifySW(){
+  const checkedData=getTodayData();
+  if(navigator.serviceWorker && navigator.serviceWorker.controller){
+    navigator.serviceWorker.controller.postMessage({
+      type: 'HABIT_DONE',
+      habits: habits,
+      checkedData: checkedData
+    });
+  }
+}
+
 function scheduleAll(){
   clearTimers();
   if(typeof Notification==='undefined'||Notification.permission!=='granted') return;
-  const data=getTodayData();
-  const now=new Date();
+  const checkedData=getTodayData();
 
-  // Filter habits not yet done today
-  const pending=habits.filter(h=>!(data[h.id]&&data[h.id].done));
-
-  // 1. Use Service Worker for background notifications (works when app is closed)
+  // Send to Service Worker (works in background, even when screen is locked)
   if(navigator.serviceWorker && navigator.serviceWorker.controller){
     navigator.serviceWorker.controller.postMessage({
-      type:'SCHEDULE_NOTIFICATIONS',
-      habits: pending,
-      fajrTime: fajrTime
+      type: 'SCHEDULE_NOTIFICATIONS',
+      habits: habits,
+      checkedData: checkedData
     });
-  }
-
-  // 2. Also use setTimeout as fallback when app is open
-  pending.forEach(h=>{
-    const[hh,mm]=h.time.split(':').map(Number);
-    const t=new Date(); t.setHours(hh,mm,0,0);
-    const diff=t-now;
-    if(diff>0){
-      timers.push(setTimeout(()=>{
-        const d=getTodayData();
-        if(!(d[h.id]&&d[h.id].done)){
-          new Notification('⏰ Herinnering — Gewoontes',{
-            body: h.emoji+' '+h.name+' — tijd om te beginnen!',
-            icon: location.origin+'/Gewoontes/apple-touch-icon.png',
-            tag: h.id,
-            renotify: true
+  } else {
+    // SW not ready yet — wait and retry
+    if(navigator.serviceWorker){
+      navigator.serviceWorker.ready.then(reg => {
+        if(reg.active){
+          reg.active.postMessage({
+            type: 'SCHEDULE_NOTIFICATIONS',
+            habits: habits,
+            checkedData: checkedData
           });
         }
-      }, diff));
+      });
     }
-  });
+  }
 }
 
 async function askNotif(){
