@@ -10,6 +10,20 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <title>Mijn gewoontes</title>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    // Dynamic path: works on GitHub Pages and any other host
+    const swPath = new URL('sw.js', window.location.href).href;
+    navigator.serviceWorker.register(swPath)
+      .then(reg => {
+        console.log('SW registered:', reg.scope);
+        window._swReg = reg;
+      })
+      .catch(err => console.log('SW failed (only works on GitHub Pages):', err));
+  });
+}
+</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 body{font-family:-apple-system,'Segoe UI',Arial,sans-serif;background:#f5f4f0;min-height:100vh;padding-bottom:75px;}
@@ -193,7 +207,7 @@ body{font-family:-apple-system,'Segoe UI',Arial,sans-serif;background:#f5f4f0;mi
       <label class="save-btn" style="background:#534AB7;cursor:pointer;display:block;text-align:center;">📥 Data importeren (terugzetten)<input type="file" accept=".json" onchange="importData(event)" style="display:none;"></label>
       <button class="save-btn" onclick="showDataInfo()" style="background:#fff;color:#185FA5;border:1.5px solid #185FA5;">ℹ️ Wat wordt opgeslagen?</button>
     </div>
-    <p class="hint" style="margin-top:12px;">Versie 2.6 · Gewoontes app</p>
+    <p class="hint" style="margin-top:12px;">Versie 2.8 · Gewoontes app</p>
   </div>
 
 </div>
@@ -285,8 +299,10 @@ function toggleHabit(id){
   const data=getTodayData();
   data[id]=data[id]||{};
   data[id].done=!data[id].done;
-  if(data[id].done)delete data[id].reason;
+  if(data[id].done) delete data[id].reason;
   saveData(TODAY,data);
+  // Reschedule to remove notification for completed habit
+  scheduleAll();
   renderToday();
 }
 
@@ -301,32 +317,69 @@ function clearTimers(){timers.forEach(clearTimeout);timers=[];}
 
 function scheduleAll(){
   clearTimers();
-  if(typeof Notification==='undefined'||Notification.permission!=='granted')return;
-  const now=new Date();
+  if(typeof Notification==='undefined'||Notification.permission!=='granted') return;
   const data=getTodayData();
-  habits.forEach(h=>{
-    if(data[h.id]&&data[h.id].done)return;
+  const now=new Date();
+
+  // Filter habits not yet done today
+  const pending=habits.filter(h=>!(data[h.id]&&data[h.id].done));
+
+  // 1. Use Service Worker for background notifications (works when app is closed)
+  if(navigator.serviceWorker && navigator.serviceWorker.controller){
+    navigator.serviceWorker.controller.postMessage({
+      type:'SCHEDULE_NOTIFICATIONS',
+      habits: pending,
+      fajrTime: fajrTime
+    });
+  }
+
+  // 2. Also use setTimeout as fallback when app is open
+  pending.forEach(h=>{
     const[hh,mm]=h.time.split(':').map(Number);
-    const t=new Date();t.setHours(hh,mm,0,0);
+    const t=new Date(); t.setHours(hh,mm,0,0);
     const diff=t-now;
-    if(diff>0)timers.push(setTimeout(()=>{
-      const d=getTodayData();
-      if(!(d[h.id]&&d[h.id].done))new Notification('⏰ Herinnering',{body:h.notify||h.name,icon:''});
-    },diff));
+    if(diff>0){
+      timers.push(setTimeout(()=>{
+        const d=getTodayData();
+        if(!(d[h.id]&&d[h.id].done)){
+          new Notification('⏰ Herinnering — Gewoontes',{
+            body: h.emoji+' '+h.name+' — tijd om te beginnen!',
+            icon: location.origin+'/Gewoontes/apple-touch-icon.png',
+            tag: h.id,
+            renotify: true
+          });
+        }
+      }, diff));
+    }
   });
 }
 
 async function askNotif(){
   if(!('Notification' in window)){
-    alert('Meldingen worden niet ondersteund. Installeer de app eerst via Safari → "Zet op beginscherm".');return;
+    alert('Meldingen worden niet ondersteund.\n\nZorg dat:\n1. Je iPhone heeft iOS 16.4 of nieuwer\n2. De app is geïnstalleerd via Safari → "Zet op beginscherm"\n3. Je de app opent via het icoontje, niet via Safari');
+    return;
   }
   if(Notification.permission==='denied'){
-    alert('Meldingen zijn geblokkeerd. Ga naar: iPhone Instellingen → Safari → Notificaties → sta toe voor deze website.');return;
+    alert('Meldingen zijn geblokkeerd.\n\nGa naar:\niPhone Instellingen → Gewoontes → Notificaties → Sta notificaties toe');
+    return;
   }
+  // Must be triggered by user gesture - this is already a button click
   const p=await Notification.requestPermission();
   if(p==='granted'){
-    scheduleAll();
-    new Notification('✅ Gewoontes app',{body:'Meldingen zijn ingeschakeld!'});
+    // Wait for SW to be ready then schedule
+    if(navigator.serviceWorker){
+      navigator.serviceWorker.ready.then(reg=>{
+        window._swReg=reg;
+        scheduleAll();
+        reg.showNotification('✅ Gewoontes app',{
+          body:'Meldingen ingeschakeld! Je krijgt nu herinneringen.',
+          icon:'/Gewoontes/apple-touch-icon.png'
+        });
+      });
+    } else {
+      scheduleAll();
+      new Notification('✅ Gewoontes app',{body:'Meldingen ingeschakeld!'});
+    }
   }
   updateNotifButtons();
 }
