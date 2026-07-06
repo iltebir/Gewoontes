@@ -201,13 +201,31 @@ body{font-family:-apple-system,'Segoe UI',Arial,sans-serif;background:#f5f4f0;mi
     </div>
     <button class="notif-btn" id="notif-btn-settings">🔔 Meldingen inschakelen</button>
 
+    <div class="settings-section-title">🔔 Meldingen via ntfy.sh</div>
+    <div class="card">
+      <p style="font-size:12px;color:#555;line-height:1.7;margin-bottom:10px;">
+        ntfy.sh stuurt meldingen naar je iPhone ook als de app gesloten is.<br>
+        <strong>Stap 1:</strong> Installeer de gratis <strong>ntfy</strong> app op je iPhone via de App Store.<br>
+        <strong>Stap 2:</strong> Kies een unieke kanaalnaam hieronder en tik op Opslaan.<br>
+        <strong>Stap 3:</strong> Open de ntfy app → tik "+" → vul dezelfde kanaalnaam in → klaar!
+      </p>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+        <input id="ntfy-channel" type="text" placeholder="bijv. gewoontes-irfan-xk729"
+          style="flex:1;border:0.5px solid #ccc;border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;background:#faf9f6;color:#1a1a18;">
+        <button onclick="saveNtfyChannel()" style="padding:8px 14px;border-radius:8px;border:none;background:#185FA5;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;white-space:nowrap;">Opslaan</button>
+      </div>
+      <button onclick="testNtfy()" style="width:100%;padding:10px;border-radius:8px;border:0.5px solid #185FA5;background:#fff;color:#185FA5;font-size:13px;cursor:pointer;font-family:inherit;">
+        📨 Stuur een testmelding
+      </button>
+      <div id="ntfy-status" style="font-size:11px;color:#888;margin-top:8px;text-align:center;"></div>
+    </div>
     <div class="settings-section-title">💾 Data back-up</div>
     <div class="card" style="display:flex;flex-direction:column;gap:10px;">
       <button class="save-btn" onclick="exportData()" style="background:#1D9E75;">📤 Data exporteren (download)</button>
       <label class="save-btn" style="background:#534AB7;cursor:pointer;display:block;text-align:center;">📥 Data importeren (terugzetten)<input type="file" accept=".json" onchange="importData(event)" style="display:none;"></label>
       <button class="save-btn" onclick="showDataInfo()" style="background:#fff;color:#185FA5;border:1.5px solid #185FA5;">ℹ️ Wat wordt opgeslagen?</button>
     </div>
-    <p class="hint" style="margin-top:12px;">Versie 2.9 · Gewoontes app</p>
+    <p class="hint" style="margin-top:12px;">Versie 3.0 · Gewoontes app</p>
   </div>
 
 </div>
@@ -303,6 +321,7 @@ function toggleHabit(id){
   saveData(TODAY,data);
   // Tell SW to reschedule (removes reminder for this habit)
   notifySW();
+  scheduleNtfy();
   renderToday();
 }
 
@@ -312,7 +331,7 @@ function saveReason(id,val){
   data[id].reason=val;
   saveData(TODAY,data);
   // Stop reminders for this habit since reason is given
-  if(val && val.trim()) notifySW();
+  if(val && val.trim()){ notifySW(); scheduleNtfy(); }
 }
 
 function clearTimers(){timers.forEach(clearTimeout);timers=[];}
@@ -686,6 +705,11 @@ function init(){
   if(isIOS&&!isStandalone)banner.style.display='block';
   renderToday();
   scheduleAll();
+  // Load ntfy channel
+  ntfyChannel = localStorage.getItem('ntfy_channel') || '';
+  const ntfyInput = document.getElementById('ntfy-channel');
+  if(ntfyInput && ntfyChannel) ntfyInput.value = ntfyChannel;
+  scheduleNtfy();
 }
 
 
@@ -739,6 +763,103 @@ function showDataInfo(){
     +"Locatie: Lokaal op jouw iPhone\n"
     +"Privacy: Gaat nooit naar een server.";
   alert(msg);
+}
+
+
+// ---- NTFY.SH ----
+let ntfyChannel = localStorage.getItem('ntfy_channel') || '';
+let ntfyTimers  = [];
+
+function saveNtfyChannel(){
+  const val = document.getElementById('ntfy-channel').value.trim();
+  if(!val){ setNtfyStatus('Vul een kanaalnaam in.', '#A32D2D'); return; }
+  ntfyChannel = val;
+  localStorage.setItem('ntfy_channel', val);
+  setNtfyStatus('✅ Kanaal opgeslagen: ' + val, '#27500A');
+  clearNtfyTimers();
+  scheduleNtfy();
+}
+
+function setNtfyStatus(msg, color){
+  const el = document.getElementById('ntfy-status');
+  if(el){ el.textContent = msg; el.style.color = color || '#888'; }
+}
+
+async function sendNtfy(title, body){
+  if(!ntfyChannel) return;
+  try {
+    await fetch('https://ntfy.sh/' + ntfyChannel, {
+      method: 'POST',
+      headers: { 'Title': title, 'Priority': 'default', 'Content-Type': 'text/plain' },
+      body: body
+    });
+  } catch(e){ console.log('ntfy error:', e); }
+}
+
+async function testNtfy(){
+  if(!ntfyChannel){
+    setNtfyStatus('Sla eerst een kanaalnaam op!', '#A32D2D'); return;
+  }
+  setNtfyStatus('Melding versturen...', '#185FA5');
+  await sendNtfy('✅ Gewoontes app', 'Testmelding ontvangen! Meldingen werken correct.');
+  setNtfyStatus('✅ Testmelding verstuurd naar: ' + ntfyChannel, '#27500A');
+}
+
+function clearNtfyTimers(){
+  ntfyTimers.forEach(t => clearTimeout(t));
+  ntfyTimers = [];
+}
+
+function scheduleNtfy(){
+  clearNtfyTimers();
+  if(!ntfyChannel) return;
+  const now     = new Date();
+  const todayData = getTodayData();
+  const endOfDay  = new Date(); endOfDay.setHours(23, 0, 0, 0);
+
+  habits.forEach(h => {
+    const entry = todayData[h.id] || {};
+    if(entry.done || (entry.reason && entry.reason.trim())) return;
+
+    const [hh, mm] = h.time.split(':').map(Number);
+    const taskTime  = new Date(); taskTime.setHours(hh, mm, 0, 0);
+
+    // First notification at task time
+    const diffFirst = taskTime - now;
+    if(diffFirst > 0){
+      ntfyTimers.push(setTimeout(() => {
+        const d = getTodayData();
+        const e = d[h.id] || {};
+        if(!e.done && !(e.reason && e.reason.trim())){
+          sendNtfy(h.emoji + ' ' + h.name, 'Tijd om te beginnen! Vink af in de Gewoontes app.');
+        }
+      }, diffFirst));
+    }
+
+    // Hourly reminders after task time
+    let next = new Date(Math.max(taskTime.getTime(), now.getTime()));
+    next.setMinutes(0, 0, 0);
+    next.setHours(next.getHours() + 1);
+
+    while(next <= endOfDay){
+      const delay = next - now;
+      if(delay > 0){
+        const snapTime = new Date(next);
+        ntfyTimers.push(setTimeout(() => {
+          const d = getTodayData();
+          const e = d[h.id] || {};
+          if(!e.done && !(e.reason && e.reason.trim())){
+            sendNtfy(
+              '⏰ Herinnering: ' + h.name,
+              'Je hebt ' + h.emoji + ' ' + h.name + ' nog niet gedaan. Vink af of schrijf een reden.'
+            );
+          }
+        }, delay));
+      }
+      next = new Date(next);
+      next.setHours(next.getHours() + 1);
+    }
+  });
 }
 
 setInterval(renderToday,60000);
